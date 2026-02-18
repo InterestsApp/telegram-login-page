@@ -42,52 +42,45 @@
 
     <div class="note">Нажмите кнопку выше для входа</div>
 
-<script>
-    window.handleTelegramLogin = function(user) {
-        console.log("Telegram login success:", user);
+        <script>
+            window.handleTelegramLogin = function(user) {
+                console.log("Telegram login success:", user);
 
-        // ✅ ПРАВИЛЬНОЕ кодирование с поддержкой Unicode (русских букв)
-        // 1. Превращаем объект в JSON-строку
-        const userJson = JSON.stringify(user);
-        
-        // 2. Кодируем строку в base64 с поддержкой Unicode
-        //    Используем TextEncoder для надежности
-        function utf8ToBase64(str) {
-            // Сначала преобразуем строку UTF-16 в байты UTF-8
-            const utf8Bytes = new TextEncoder().encode(str);
-            // Затем преобразуем байты в строку для btoa
-            let binaryString = '';
-            for (let i = 0; i < utf8Bytes.length; i++) {
-                binaryString += String.fromCharCode(utf8Bytes[i]);
-            }
-            return btoa(binaryString);
-        }
-        
-        const encodedData = utf8ToBase64(userJson);
-        console.log("Encoded data length:", encodedData.length);
+                // УНИВЕРСАЛЬНОЕ кодирование через encodeURIComponent
+                // 1. Превращаем объект в JSON-строку
+                const userJson = JSON.stringify(user);
+                
+                // 2. Кодируем JSON-строку так, чтобы она стала безопасной для btoa
+                //    encodeURIComponent превращает русские буквы в %D0%AD之类 последовательность
+                const encodedUri = encodeURIComponent(userJson);
+                
+                // 3. Теперь в строке только латиница, цифры и %, можно смело делать btoa
+                const encodedData = btoa(encodedUri);
+                
+                console.log("Encoded data length:", encodedData.length);
 
-        // 2. Проверяем, где мы находимся
-        if (window.Android && typeof window.Android.onTelegramLogin === 'function') {
-            console.log("Android app detected, calling native method");
-            Android.onTelegramLogin(userJson); // В Android уходит чистая строка
-            return;
-        }
+                // Проверяем, где мы находимся
+                if (window.Android && typeof window.Android.onTelegramLogin === 'function') {
+                    console.log("Android app detected, calling native method");
+                    Android.onTelegramLogin(userJson);
+                    return;
+                }
 
-        // 3. Для веб-браузера - редирект
-        console.log("Web browser detected, redirecting...");
-        
-        // 👇 Убедись, что порт правильный (3001 или твой текущий)
-        const webLoginUrl = 'http://localhost:3001/login';
-        const redirectUrl = webLoginUrl + '#tgAuthResult=' + encodedData;
-        console.log("Redirecting to:", redirectUrl);
+                // Для веб-браузера - редирект
+                console.log("Web browser detected, redirecting...");
+                
+                // 👇 Убедись, что порт правильный (3001 или твой текущий)
+                const webLoginUrl = 'http://localhost:3001/login';
+                const redirectUrl = webLoginUrl + '#tgAuthResult=' + encodedData;
+                console.log("Redirecting to:", redirectUrl);
 
-        if (window.opener && !window.opener.closed) {
-            window.opener.location.href = redirectUrl;
-            window.close();
-        } else {
-            window.location.href = redirectUrl;
-        }
-    };
-</script>
-</body>
+                if (window.opener && !window.opener.closed) {
+                    window.opener.location.href = redirectUrl;
+                    window.close();
+                } else {
+                    window.location.href = redirectUrl;
+                }
+            };
+        </script>
+    </body>
 </html>
