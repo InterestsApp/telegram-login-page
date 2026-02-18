@@ -28,8 +28,9 @@
 <body>
     <h2>GO ВМЕСТЕ</h2>
 
-    <script 
-        async 
+    <!-- ВАЖНО: data-onauth теперь указывает на нашу универсальную функцию -->
+    <script
+        async
         src="https://telegram.org/js/telegram-widget.js?22"
         data-telegram-login="InterestsApp_bot"
         data-size="large"
@@ -42,30 +43,47 @@
     <div class="note">Нажмите кнопку выше для входа</div>
 
     <script>
-        // Единая функция обработки для всех случаев
-        function handleTelegramLogin(user) {
+        // УНИВЕРСАЛЬНАЯ ФУНКЦИЯ: сработает после авторизации в Telegram
+        window.handleTelegramLogin = function(user) {
             console.log("Telegram login success:", user);
-            
-            // Кодируем данные
-            const encodedData = btoa(JSON.stringify(user));
-            
-            // 1. ПРОВЕРЯЕМ: если мы в Android WebView (есть функция Android.onTelegramLogin)
+
+            // 1. Кодируем данные пользователя в безопасную строку base64
+            //    (используем unescape/encodeURIComponent для поддержки кириллицы)
+            const userJson = JSON.stringify(user);
+            const encodedData = btoa(unescape(encodeURIComponent(userJson)));
+
+            // 2. ПРОВЕРЯЕМ, где мы находимся
+            //    Если есть объект Android (мы в WebView приложения) - вызываем нативный метод
             if (window.Android && typeof window.Android.onTelegramLogin === 'function') {
                 console.log("Android app detected, calling native method");
-                Android.onTelegramLogin(JSON.stringify(user));
-                return;
+                // Важно: передаем строку, а не объект
+                Android.onTelegramLogin(userJson);
+                return; // Выходим, дальше не идем
             }
-            
-            // 2. Если мы в обычном браузере - редирект на локальный сайт
-            //    (замени порт 3002 на тот, который используешь)
-            const webLoginUrl = 'http://127.0.0.1:3002/login';
-            window.location.href = webLoginUrl + '#tgAuthResult=' + encodedData;
-        }
-        
-        // Функция для безопасного base64 (поддержка Unicode)
-        function btoa(str) {
-            return window.btoa(unescape(encodeURIComponent(str)));
-        }
+
+            // 3. Если мы НЕ в Android (значит, в обычном браузере) - ДЕЛАЕМ РЕДИРЕКТ
+            console.log("Web browser detected, redirecting...");
+
+            // 👇 ЗДЕСЬ УКАЖИ СВОЙ ТОЧНЫЙ АДРЕС И ПОРТ (сейчас 3001)
+            const webLoginUrl = 'http://localhost:3001/login';
+
+            // Формируем полный URL с данными в хеше
+            const redirectUrl = webLoginUrl + '#tgAuthResult=' + encodedData;
+            console.log("Redirecting to:", redirectUrl);
+
+            // Перенаправляем текущую (или родительскую) страницу
+            if (window.opener && !window.opener.closed) {
+                // Если страница открыта как попап - отправляем данные в родительское окно и закрываемся
+                window.opener.location.href = redirectUrl;
+                window.close();
+            } else {
+                // Обычный редирект в текущем окне
+                window.location.href = redirectUrl;
+            }
+        };
+
+        // Добавим небольшую задержку и проверим, загрузился ли виджет
+        console.log("Telegram login page loaded. Widget should appear.");
     </script>
 </body>
 </html>
